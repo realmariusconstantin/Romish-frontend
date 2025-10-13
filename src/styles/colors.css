@@ -1,0 +1,28 @@
+/* Galaxy Theme Color Palette */
+:root {
+  /* Base Colors */
+  --cosmic-black: #0b0f1a;
+  --deep-space-blue: #111827;
+  --nebula-purple: #7f5af0;
+  --magenta-glow: #9d4edd;
+  --star-cyan: #4bcffa;
+  --aurora-pink: #ff66c4;
+  --void-gray: #2c2f3a;
+  --white-nova: #f8fafc;
+
+  /* Gradients */
+  --galactic-gradient: linear-gradient(135deg, #0b0f1a, #111827 40%, #1e1938 90%);
+  --nebula-gradient: linear-gradient(135deg, #7f5af0, #9d4edd, #ff66c4);
+  --starlight-gradient: linear-gradient(90deg, #4bcffa, #7f5af0, #ff66c4);
+
+  /* Glow Effects */
+  --cyan-glow: 0 0 20px rgba(75, 207, 250, 0.5), 0 0 40px rgba(75, 207, 250, 0.3);
+  --purple-glow: 0 0 20px rgba(127, 90, 240, 0.5), 0 0 40px rgba(127, 90, 240, 0.3);
+  --magenta-glow-shadow: 0 0 20px rgba(255, 102, 196, 0.5), 0 0 40px rgba(255, 102, 196, 0.3);
+  --subtle-glow: 0 0 10px rgba(75, 207, 250, 0.2), 0 0 20px rgba(75, 207, 250, 0.1);
+
+  /* Hover Glows */
+  --cyan-glow-hover: 0 0 30px rgba(75, 207, 250, 0.7), 0 0 60px rgba(75, 207, 250, 0.5);
+  --purple-glow-hover: 0 0 30px rgba(127, 90, 240, 0.7), 0 0 60px rgba(127, 90, 240, 0.5);
+  --magenta-glow-hover: 0 0 30px rgba(255, 102, 196, 0.7), 0 0 60px rgba(255, 102, 196, 0.5);
+}
