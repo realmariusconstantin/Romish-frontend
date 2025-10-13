@@ -29,7 +29,7 @@
         </div>
 
         <div class="player-list-footer">
-            <button class="invite-all-btn glow-button">Invite All</button>
+            <button class="invite-all-btn glow-button">Add Friend</button>
         </div>
     </aside>
 

@@ -25,7 +25,36 @@
             <div class="setting-item">
                 <span class="setting-label">Settings</span>
                 <span class="setting-value">
-                    <span class="info-icon">ⓘ</span> Romish Customs
+                    <span class="info-icon-wrapper">
+                        <span class="info-icon">ⓘ</span>
+                        <div class="info-tooltip">
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Friendly fire</span>
+                                <span class="tooltip-value">Enabled</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">OT</span>
+                                <span class="tooltip-value">MR6 ∞</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">OT Start $</span>
+                                <span class="tooltip-value">$12,500</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Timeouts (tac)</span>
+                                <span class="tooltip-value">3 × 30 sec</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Timeouts (tech)</span>
+                                <span class="tooltip-value">2 × 90 sec</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span class="tooltip-label">Snap Tap / SOCD</span>
+                                <span class="tooltip-value">Not allowed</span>
+                            </div>
+                        </div>
+                    </span>
+                    Romish Customs
                 </span>
             </div>
         </div>
@@ -145,9 +174,83 @@
     gap: 0.5rem;
 }
 
+.info-icon-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
 .info-icon {
-    color: var(--star-cyan);
+    color: var(--white-nova);
     font-weight: bold;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.info-icon-wrapper:hover .info-icon {
+    color: var(--star-cyan);
+    transform: scale(1.1);
+}
+
+/* Tooltip */
+.info-tooltip {
+    position: absolute;
+    bottom: calc(100% + 0.75rem);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 280px;
+    background: rgba(17, 24, 39, 0.98);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(75, 207, 250, 0.5);
+    border-radius: 12px;
+    padding: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    box-shadow: 0 0 20px rgba(75, 207, 250, 0.3), 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.info-icon-wrapper:hover .info-tooltip {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* Tooltip Arrow */
+.info-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top-color: rgba(75, 207, 250, 0.5);
+}
+
+.tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    gap: 1rem;
+}
+
+.tooltip-row:not(:last-child) {
+    border-bottom: 1px solid rgba(75, 207, 250, 0.15);
+}
+
+.tooltip-label {
+    font-size: 0.875rem;
+    color: rgba(248, 250, 252, 0.7);
+    font-weight: 500;
+}
+
+.tooltip-value {
+    font-size: 0.875rem;
+    color: var(--white-nova);
+    font-weight: 600;
+    text-align: right;
 }
 
 /* Queue Button */
