@@ -1,4 +1,6 @@
-<script setup></script>
+<script setup>
+import userAvatar from '@/images/user.png'
+</script>
 
 <template>
     <!-- Toggle Button -->
@@ -17,7 +19,9 @@
 
         <div class="player-list-content">
             <div v-for="(player, index) in players" :key="index" class="player-item">
-                <div class="player-avatar-small"></div>
+                <div class="player-avatar-small">
+                    <img :src="userAvatar" alt="Player Avatar" class="avatar-image-small" />
+                </div>
                 <div class="player-details">
                     <span class="player-name">Player {{ index + 1 }}</span>
                     <span class="player-status">Online</span>
@@ -211,10 +215,20 @@
 .player-avatar-small {
     width: 50px;
     height: 50px;
-    background: rgba(248, 250, 252, 0.9);
+    background: rgba(248, 250, 252, 0.1);
     border-radius: 50%;
     flex-shrink: 0;
     border: 2px solid var(--star-cyan);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-image-small {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .player-details {

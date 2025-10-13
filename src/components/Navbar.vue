@@ -1,4 +1,6 @@
-<script setup></script>
+<script setup>
+import userAvatar from '@/images/user.png'
+</script>
 
 <template>
     <nav class="navbar">
@@ -17,7 +19,9 @@
 
                 <!-- Profile Dropdown -->
                 <div class="profile-dropdown" @click="toggleDropdown">
-                    <div class="profile-avatar"></div>
+                    <div class="profile-avatar">
+                        <img :src="userAvatar" alt="Profile Avatar" class="profile-avatar-image" />
+                    </div>
                     <span class="dropdown-arrow">▼</span>
                     
                     <!-- Dropdown Menu -->
@@ -152,10 +156,20 @@
 .profile-avatar {
     width: 40px;
     height: 40px;
-    background: var(--nebula-gradient);
+    background: rgba(127, 90, 240, 0.1);
     border-radius: 50%;
     border: 2px solid var(--star-cyan);
     flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .dropdown-arrow {
