@@ -8,6 +8,9 @@ const route = useRoute();
 
 const isDropdownOpen = ref(false);
 
+// TODO: Replace with actual backend admin check (cookie/token validation)
+const isAdmin = ref(true); // Set to true for testing, false for regular users
+
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value;
 };
@@ -28,8 +31,6 @@ const navItems = [
   { name: 'Home', path: '/' },
   { name: 'Maps', path: '/maps' },
   { name: 'Leaderboard', path: '/leaderboard' },
-  { name: 'Stats', path: '/stats' },
-  { name: 'Profile', path: '/profile' }
 ];
 </script>
 
@@ -74,10 +75,13 @@ const navItems = [
                             <span class="dropdown-icon">🎮</span>
                             <span>Game Stats (W.I.P)</span>
                         </div>
-                        <div class="dropdown-item">
-                            <span class="dropdown-icon">👥</span>
-                            <span>Friends (W.I.P)</span>
+                        
+                        <!-- Admin Panel - Only visible to admins -->
+                        <div v-if="isAdmin" class="dropdown-item admin-item" @click="router.push('/admin')">
+                            <span class="dropdown-icon">🛡️</span>
+                            <span>Admin Panel</span>
                         </div>
+                        
                         <div class="dropdown-divider"></div>
                         <div class="dropdown-item logout">
                             <span class="dropdown-icon">🚪</span>
@@ -297,6 +301,16 @@ const navItems = [
     margin: 0.5rem 0;
 }
 
+.admin-item {
+    background: rgba(255, 102, 196, 0.05);
+    border-left: 3px solid var(--aurora-pink);
+}
+
+.admin-item:hover {
+    background: rgba(255, 102, 196, 0.15);
+    box-shadow: 0 0 15px rgba(255, 102, 196, 0.3);
+}
+
 @media (max-width: 768px) {
     .navbar-title {
         font-size: 1.5rem;
@@ -330,26 +344,3 @@ const navItems = [
     }
 }
 </style>
-
-<script>
-export default {
-    data() {
-        return {
-            isDropdownOpen: false
-        }
-    },
-    methods: {
-        toggleDropdown() {
-            this.isDropdownOpen = !this.isDropdownOpen
-        }
-    },
-    mounted() {
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.profile-dropdown')) {
-                this.isDropdownOpen = false
-            }
-        })
-    }
-}
-</script>

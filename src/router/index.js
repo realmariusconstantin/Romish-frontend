@@ -1,7 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import LoginView from '@/views/LoginView.vue';
 import Home from '@/views/Home.vue';
 
 const routes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: LoginView
+  },
   {
     path: '/',
     name: 'Home',
@@ -36,6 +42,12 @@ const routes = [
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue')
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('@/views/AdminView.vue')
+    // TODO: Add route guard to check if user is admin
   }
 ];
 
