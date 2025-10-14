@@ -1,8 +1,8 @@
 <script setup>
-import Home from '@/views/Home.vue'
+// Router handles all views now
 </script>
 
 <template>
-  <Home />
+  <router-view />
 </template>
 

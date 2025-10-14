@@ -65,37 +65,13 @@ import userAvatar from '@/images/user.png'
 
         <!-- Queue Button / Timer -->
         <div class="queue-button-container">
-            <!-- Queue Button (shown when not in queue) -->
-            <div v-if="!queueState.isQueuing" class="button-group">
-                <button 
-                    class="glow-button queue-button" 
-                    @click="startQueue"
-                >
-                    Queue
-                </button>
-                <button 
-                    class="test-button" 
-                    @click="goToBanPhase"
-                    title="Test Ban Phase"
-                >
-                    <span class="test-icon">🧪</span>
-                    Ban Phase
-                </button>
-            </div>
-
-            <!-- Queue Timer (shown when in queue) -->
-            <div v-else class="queue-timer-container">
-                <div class="queue-timer">
-                    <div class="timer-content">
-                        <span class="timer-label">In Queue</span>
-                        <span class="timer-display">{{ formattedTime }}</span>
-                        <span class="timer-sublabel">{{ queueState.playersInQueue }} players searching</span>
-                    </div>
-                    <button class="cancel-queue-btn" @click="cancelQueue" title="Leave Queue">
-                        <span class="cancel-icon">✕</span>
-                    </button>
-                </div>
-            </div>
+            <!-- Queue Button -->
+            <button 
+                class="glow-button queue-button" 
+                @click="startQueue"
+            >
+                Queue
+            </button>
 
             <!-- Queue Status -->
             <p class="queue-status">{{ queueStatusText }}</p>
@@ -110,6 +86,8 @@ import userAvatar from '@/images/user.png'
     align-items: center;
     gap: 2rem;
     padding: 2rem;
+    width: 100%;
+    max-width: 1400px;
 }
 
 /* Player Cards */
@@ -118,6 +96,7 @@ import userAvatar from '@/images/user.png'
     gap: 2rem;
     justify-content: center;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 .player-card {
@@ -539,7 +518,7 @@ export default {
         }
     },
     methods: {
-        // Start queueing - can be expanded to send API request
+        // Start queueing - emit event to parent for navigation
         startQueue() {
             console.log('Starting queue with settings:', {
                 region: this.queueState.region,
@@ -547,10 +526,15 @@ export default {
                 settings: this.queueState.customSettings
             })
 
+            // For now, just emit event to navigate to draft
+            // TODO: connect backend later - implement actual matchmaking
+            this.$emit('start-queue')
+
+            /* Future implementation:
             this.queueState.isQueuing = true
             this.queueState.startTime = Date.now()
             this.queueState.elapsedSeconds = 0
-            this.queueState.playersInQueue = Math.floor(Math.random() * 20) + 5 // Mock data
+            this.queueState.playersInQueue = Math.floor(Math.random() * 20) + 5
 
             // Start timer
             this.queueTimer = setInterval(() => {
@@ -561,12 +545,13 @@ export default {
                     this.queueState.playersInQueue = Math.floor(Math.random() * 30) + 5
                 }
 
-                // TODO: For future - check for match found via WebSocket/API
+                // Check for match found via WebSocket/API
                 // if (matchFound) { this.onMatchFound() }
             }, 1000)
 
-            // TODO: For future - send queue request to backend
+            // Send queue request to backend
             // this.sendQueueRequest()
+            */
         },
 
         // Cancel queue - can be expanded to send API cancellation

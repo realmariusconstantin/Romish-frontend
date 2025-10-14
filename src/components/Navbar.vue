@@ -1,5 +1,36 @@
 <script setup>
-import userAvatar from '@/images/user.png'
+import { ref } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import userAvatar from '@/images/user.png';
+
+const router = useRouter();
+const route = useRoute();
+
+const isDropdownOpen = ref(false);
+
+const toggleDropdown = () => {
+  isDropdownOpen.value = !isDropdownOpen.value;
+};
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event) => {
+  if (!event.target.closest('.profile-dropdown')) {
+    isDropdownOpen.value = false;
+  }
+};
+
+// Add event listener when component mounts
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', handleClickOutside);
+}
+
+const navItems = [
+  { name: 'Home', path: '/' },
+  { name: 'Maps', path: '/maps' },
+  { name: 'Leaderboard', path: '/leaderboard' },
+  { name: 'Stats', path: '/stats' },
+  { name: 'Profile', path: '/profile' }
+];
 </script>
 
 <template>
@@ -7,16 +38,21 @@ import userAvatar from '@/images/user.png'
         <div class="navbar-content">
             <h1 class="navbar-title">ROMISH</h1>
             
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <router-link
+                    v-for="item in navItems"
+                    :key="item.path"
+                    :to="item.path"
+                    class="nav-tab"
+                    :class="{ active: route.path === item.path }"
+                >
+                    {{ item.name }}
+                </router-link>
+            </div>
+            
             <!-- Profile Section -->
             <div class="profile-section">
-                <!-- Notification Bell -->
-                <div class="notification-wrapper">
-                    <button class="notification-btn">
-                        <span class="bell-icon">🔔</span>
-                        <span class="notification-badge">3</span>
-                    </button>
-                </div>
-
                 <!-- Profile Dropdown -->
                 <div class="profile-dropdown" @click="toggleDropdown">
                     <div class="profile-avatar">
@@ -60,6 +96,9 @@ import userAvatar from '@/images/user.png'
     background: rgba(11, 15, 26, 0.8);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(75, 207, 250, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
 .navbar-content {
@@ -68,6 +107,7 @@ import userAvatar from '@/images/user.png'
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 3rem;
 }
 
 .navbar-title {
@@ -80,6 +120,54 @@ import userAvatar from '@/images/user.png'
     -webkit-text-fill-color: transparent;
     background-clip: text;
     text-shadow: 0 0 30px rgba(75, 207, 250, 0.5);
+    flex-shrink: 0;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex: 1;
+    justify-content: center;
+}
+
+.nav-tab {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(248, 250, 252, 0.6);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+    border: 2px solid transparent;
+}
+
+.nav-tab:hover {
+    color: var(--star-cyan);
+    background: rgba(75, 207, 250, 0.1);
+    border-color: rgba(75, 207, 250, 0.3);
+}
+
+.nav-tab.active {
+    color: var(--white-nova);
+    background: rgba(75, 207, 250, 0.15);
+    border-color: var(--star-cyan);
+    box-shadow: 0 0 20px rgba(75, 207, 250, 0.3);
+}
+
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--star-cyan);
+    box-shadow: 0 0 10px var(--star-cyan);
 }
 
 /* Profile Section */
@@ -87,51 +175,8 @@ import userAvatar from '@/images/user.png'
     display: flex;
     align-items: center;
     gap: 1.5rem;
-}
-
-/* Notification Bell */
-.notification-wrapper {
     position: relative;
-}
-
-.notification-btn {
-    background: rgba(17, 24, 39, 0.6);
-    border: 2px solid rgba(75, 207, 250, 0.3);
-    border-radius: 50%;
-    width: 45px;
-    height: 45px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-}
-
-.notification-btn:hover {
-    border-color: var(--star-cyan);
-    box-shadow: var(--cyan-glow);
-    transform: scale(1.05);
-}
-
-.bell-icon {
-    font-size: 1.25rem;
-}
-
-.notification-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: var(--aurora-pink);
-    color: var(--white-nova);
-    font-size: 0.7rem;
-    font-weight: 700;
-    font-family: 'Orbitron', sans-serif;
-    padding: 0.15rem 0.4rem;
-    border-radius: 50%;
-    min-width: 20px;
-    text-align: center;
-    box-shadow: 0 0 10px var(--aurora-pink);
+    z-index: 1001;
 }
 
 /* Profile Dropdown */
@@ -146,6 +191,7 @@ import userAvatar from '@/images/user.png'
     border-radius: 50px;
     cursor: pointer;
     transition: all 0.3s ease;
+    z-index: 1002;
 }
 
 .profile-dropdown:hover {
@@ -199,7 +245,7 @@ import userAvatar from '@/images/user.png'
     pointer-events: none;
     transform: translateY(-10px);
     transition: all 0.3s ease;
-    z-index: 9999;
+    z-index: 10000;
 }
 
 .dropdown-menu.open {
@@ -220,6 +266,7 @@ import userAvatar from '@/images/user.png'
     cursor: pointer;
     font-size: 0.95rem;
     font-weight: 500;
+    z-index:9999;
 }
 
 .dropdown-item:hover {
@@ -257,11 +304,6 @@ import userAvatar from '@/images/user.png'
 
     .profile-section {
         gap: 1rem;
-    }
-
-    .notification-btn {
-        width: 40px;
-        height: 40px;
     }
 
     .profile-avatar {
