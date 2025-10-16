@@ -1,15 +1,13 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import userAvatar from '@/images/user.png';
+import { useUserStore } from '@/stores/user';
 
 const router = useRouter();
 const route = useRoute();
+const userStore = useUserStore();
 
 const isDropdownOpen = ref(false);
-
-// TODO: Replace with actual backend admin check (cookie/token validation)
-const isAdmin = ref(true); // Set to true for testing, false for regular users
 
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value;
@@ -28,16 +26,27 @@ if (typeof window !== 'undefined') {
 }
 
 const navItems = [
-  { name: 'Home', path: '/' },
   { name: 'Maps', path: '/maps' },
   { name: 'Leaderboard', path: '/leaderboard' },
 ];
+
+const handleLogout = () => {
+  userStore.logout();
+};
+
+const goToProfile = () => {
+  router.push('/profile');
+  isDropdownOpen.value = false;
+};
 </script>
 
 <template>
     <nav class="navbar">
         <div class="navbar-content">
-            <h1 class="navbar-title">ROMISH</h1>
+            <!-- Clickable ROMISH logo/title -->
+            <router-link to="/" class="navbar-title-link">
+                <h1 class="navbar-title">ROMISH</h1>
+            </router-link>
             
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
@@ -57,15 +66,20 @@ const navItems = [
                 <!-- Profile Dropdown -->
                 <div class="profile-dropdown" @click="toggleDropdown">
                     <div class="profile-avatar">
-                        <img :src="userAvatar" alt="Profile Avatar" class="profile-avatar-image" />
+                        <img 
+                            :src="userStore.user?.avatar || '/default-avatar.png'" 
+                            alt="Profile Avatar" 
+                            class="profile-avatar-image" 
+                        />
                     </div>
+                    <span class="profile-name">{{ userStore.user?.name || 'User' }}</span>
                     <span class="dropdown-arrow">▼</span>
                     
                     <!-- Dropdown Menu -->
                     <div class="dropdown-menu" :class="{ open: isDropdownOpen }">
-                        <div class="dropdown-item">
+                        <div class="dropdown-item" @click="goToProfile">
                             <span class="dropdown-icon">👤</span>
-                            <span>Profile (W.I.P)</span>
+                            <span>Profile</span>
                         </div>
                         <div class="dropdown-item">
                             <span class="dropdown-icon">⚙️</span>
@@ -77,15 +91,15 @@ const navItems = [
                         </div>
                         
                         <!-- Admin Panel - Only visible to admins -->
-                        <div v-if="isAdmin" class="dropdown-item admin-item" @click="router.push('/admin')">
+                        <div v-if="userStore.user?.isAdmin" class="dropdown-item admin-item" @click="router.push('/admin')">
                             <span class="dropdown-icon">🛡️</span>
                             <span>Admin Panel</span>
                         </div>
                         
                         <div class="dropdown-divider"></div>
-                        <div class="dropdown-item logout">
+                        <div class="dropdown-item logout" @click="handleLogout">
                             <span class="dropdown-icon">🚪</span>
-                            <span>Logout (W.I.P)</span>
+                            <span>Logout</span>
                         </div>
                     </div>
                 </div>
@@ -114,6 +128,16 @@ const navItems = [
     gap: 3rem;
 }
 
+.navbar-title-link {
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.navbar-title-link:hover {
+    transform: scale(1.05);
+}
+
 .navbar-title {
     font-family: 'Orbitron', sans-serif;
     font-size: 2rem;
@@ -125,6 +149,7 @@ const navItems = [
     background-clip: text;
     text-shadow: 0 0 30px rgba(75, 207, 250, 0.5);
     flex-shrink: 0;
+    margin: 0;
 }
 
 /* Navigation Tabs */
@@ -220,6 +245,17 @@ const navItems = [
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.profile-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--white-nova);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dropdown-arrow {
