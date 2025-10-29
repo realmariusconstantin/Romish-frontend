@@ -1,5 +1,21 @@
 <script setup>
-import userAvatar from '@/images/user.png'
+import { ref, computed } from 'vue';
+import { useQueueStore } from '@/stores/queue';
+import userAvatar from '@/images/user.png';
+
+const queueStore = useQueueStore();
+const isOpen = ref(false);
+
+const players = computed(() => queueStore.players || []);
+
+const togglePanel = () => {
+    isOpen.value = !isOpen.value;
+};
+
+const addFriend = (index) => {
+    // Placeholder for add friend action
+    console.log('Add friend clicked for index', index);
+};
 </script>
 
 <template>

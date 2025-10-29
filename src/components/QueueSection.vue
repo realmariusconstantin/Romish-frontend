@@ -1,16 +1,127 @@
 <script setup>
-import userAvatar from '@/images/user.png'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { useQueueStore } from '@/stores/queue';
+import { useUserStore } from '@/stores/user';
+import userAvatar from '@/images/user.png';
+
+const queueStore = useQueueStore();
+const userStore = useUserStore();
+
+const emit = defineEmits(['queue-action']);
+
+// Timer for displaying elapsed time
+const elapsedSeconds = ref(0);
+let timerInterval = null;
+
+// Start timer when queue has players
+const startTimer = () => {
+  if (timerInterval) return;
+  
+  timerInterval = setInterval(() => {
+    if (queueStore.queueStartTime) {
+      const now = new Date();
+      const start = new Date(queueStore.queueStartTime);
+      elapsedSeconds.value = Math.floor((now - start) / 1000);
+    } else {
+      elapsedSeconds.value = 0;
+    }
+  }, 1000);
+};
+
+// Stop timer
+const stopTimer = () => {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  elapsedSeconds.value = 0;
+};
+
+onMounted(() => {
+  startTimer();
+});
+
+onBeforeUnmount(() => {
+  stopTimer();
+});
+
+// Computed
+const formattedTime = computed(() => {
+  const minutes = Math.floor(elapsedSeconds.value / 60);
+  const seconds = elapsedSeconds.value % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+});
+
+const queueStatusText = computed(() => {
+  const playerText = queueStore.playerCount === 1 ? 'player' : 'players';
+  if (queueStore.isInQueue) {
+    return `In queue - ${queueStore.playerCount} ${playerText}`;
+  }
+  return `In queue - ${queueStore.playerCount} ${playerText}`;
+});
+
+// Generate player cards (5 slots: 1 user + 4 teammates)
+const playerCards = computed(() => {
+  const cards = [];
+  
+  // Center card (index 2) is the user with magenta glow
+  for (let i = 0; i < 5; i++) {
+    const isUser = i === 2; // 3rd card (index 2) is the user
+    
+    if (isUser) {
+      // User card (magenta glow)
+      cards.push({
+        isUser: true,
+        glowClass: 'magenta-glow',
+        avatar: userStore.user?.avatar || userAvatar,
+        name: userStore.user?.username || 'Player',
+        isWIP: false,
+      });
+    } else {
+      // Teammate cards (cyan glow, greyed out, W.I.P)
+      cards.push({
+        isUser: false,
+        glowClass: 'cyan-glow',
+        avatar: userAvatar,
+        name: '',
+        isWIP: true,
+      });
+    }
+  }
+  
+  return cards;
+});
+
+// Methods
+const handleQueueClick = () => {
+  if (queueStore.isInQueue) {
+    // Leave queue
+    emit('queue-action', 'leave');
+  } else {
+    // Join queue
+    emit('queue-action', 'join');
+  }
+};
 </script>
 
 <template>
     <section class="queue-section">
         <!-- Player Cards -->
         <div class="player-cards">
-            <div v-for="(card, index) in playerCards" :key="index" class="player-card" :class="card.glowClass">
+            <div 
+                v-for="(card, index) in playerCards" 
+                :key="index" 
+                class="player-card" 
+                :class="[card.glowClass, { 'wip-card': card.isWIP }]"
+            >
                 <div class="player-avatar">
-                    <img :src="userAvatar" alt="Player Avatar" class="avatar-image" />
+                    <img :src="card.avatar" alt="Player Avatar" class="avatar-image" />
                 </div>
-                <div class="player-info"></div>
+                <span v-if="card.isUser" class="player-name">{{ card.name }}</span>
+                <span v-else class="player-name-wip">W.I.P</span>
+                <div class="player-info">
+                    <span class="rank-text">No rank</span>
+                </div>
             </div>
         </div>
 
@@ -63,18 +174,39 @@ import userAvatar from '@/images/user.png'
             </div>
         </div>
 
-        <!-- Queue Button / Timer -->
+        <!-- Queue Button / Timer Container -->
         <div class="queue-button-container">
-            <!-- Queue Button -->
+            <!-- Queue Timer (shown when in queue) -->
+            <div v-if="queueStore.isInQueue && queueStore.playerCount > 0" class="queue-timer-container">
+                <div class="queue-timer">
+                    <div class="timer-content">
+                        <div class="timer-display">{{ formattedTime }}</div>
+                    </div>
+                    <button class="cancel-queue-btn" @click="handleQueueClick" title="Leave Queue">
+                        <span class="cancel-icon">✕</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Queue Button (shown when not in queue) -->
             <button 
+                v-else
                 class="glow-button queue-button" 
-                @click="startQueue"
+                @click="handleQueueClick"
             >
-                Queue
+                {{ queueStore.isInQueue ? 'LEAVE' : 'JOIN' }}
             </button>
 
-            <!-- Queue Status -->
-            <p class="queue-status">{{ queueStatusText }}</p>
+                        <!-- Queue Status -->
+                        <p class="queue-status">{{ queueStatusText }}</p>
+
+                        <!-- Queue Progress (tests expect an element with .progress or .queue-progress) -->
+                                    <div class="queue-progress" aria-hidden="true">
+                                        <div
+                                            class="queue-progress-bar"
+                                            :style="{ width: Math.min(100, Math.round((queueStore.playerCount / queueStore.requiredPlayers) * 100)) + '%' }"
+                                        ></div>
+                                    </div>
         </div>
     </section>
 </template>
@@ -100,17 +232,17 @@ import userAvatar from '@/images/user.png'
 }
 
 .player-card {
-    width: 200px;
-    height: 360px;
+    width: 240px;
+    height: 400px;
     background: rgba(17, 24, 39, 0.6);
     backdrop-filter: blur(10px);
     border: 2px solid;
     border-radius: 16px;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
     transition: all 0.3s ease;
     cursor: pointer;
 }
@@ -137,9 +269,25 @@ import userAvatar from '@/images/user.png'
     box-shadow: var(--magenta-glow-hover);
 }
 
+/* W.I.P Cards - Greyed out */
+.player-card.wip-card {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.player-card.wip-card .player-avatar {
+    filter: grayscale(100%);
+}
+
+.player-card.wip-card:hover {
+    transform: none;
+    box-shadow: var(--cyan-glow);
+}
+
 .player-avatar {
-    width: 140px;
-    height: 140px;
+    width: 160px;
+    height: 160px;
     background: rgba(248, 250, 252, 0.1);
     border-radius: 50%;
     flex-shrink: 0;
@@ -155,12 +303,57 @@ import userAvatar from '@/images/user.png'
     object-fit: cover;
 }
 
+.player-name {
+    color: var(--white-nova);
+    font-weight: 600;
+    font-size: 1rem;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: center;
+    width: 100%;
+}
+
+.player-name-wip {
+    color: var(--void-gray);
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-family: 'Orbitron', sans-serif;
+}
+
 .player-info {
     width: 100%;
     height: 50px;
     background: rgba(248, 250, 252, 0.9);
     border-radius: 50px;
     margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1rem;
+}
+
+.rank-text {
+    color: var(--cosmic-black);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wip-text {
+    color: var(--void-gray);
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.player-card:not(.has-player) .player-avatar {
+    opacity: 0.3;
 }
 
 /* Settings Row */
@@ -475,137 +668,3 @@ import userAvatar from '@/images/user.png'
     }
 }
 </style>
-
-<script>
-export default {
-    data() {
-        return {
-            playerCards: [
-                { glowClass: 'cyan-glow' },
-                { glowClass: 'cyan-glow' },
-                { glowClass: 'magenta-glow' },
-                { glowClass: 'cyan-glow' },
-                { glowClass: 'cyan-glow' }
-            ],
-            // Queue State - easily expandable for future features
-            queueState: {
-                isQueuing: false,
-                startTime: null,
-                elapsedSeconds: 0,
-                playersInQueue: 0,
-                estimatedWaitTime: null, // For future: estimated match time
-                queueId: null, // For future: server queue ID
-                region: 'Europe',
-                gameMode: '5v5',
-                customSettings: 'Romish Customs'
-            },
-            queueTimer: null
-        }
-    },
-    computed: {
-        // Format elapsed time as MM:SS
-        formattedTime() {
-            const minutes = Math.floor(this.queueState.elapsedSeconds / 60)
-            const seconds = this.queueState.elapsedSeconds % 60
-            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-        },
-        // Dynamic queue status text
-        queueStatusText() {
-            if (this.queueState.isQueuing) {
-                return `Searching for match... ${this.queueState.playersInQueue} players in queue`
-            }
-            return `${this.queueState.playersInQueue} players in queue`
-        }
-    },
-    methods: {
-        // Start queueing - emit event to parent for navigation
-        startQueue() {
-            console.log('Starting queue with settings:', {
-                region: this.queueState.region,
-                gameMode: this.queueState.gameMode,
-                settings: this.queueState.customSettings
-            })
-
-            // For now, just emit event to navigate to draft
-            // TODO: connect backend later - implement actual matchmaking
-            this.$emit('start-queue')
-
-            /* Future implementation:
-            this.queueState.isQueuing = true
-            this.queueState.startTime = Date.now()
-            this.queueState.elapsedSeconds = 0
-            this.queueState.playersInQueue = Math.floor(Math.random() * 20) + 5
-
-            // Start timer
-            this.queueTimer = setInterval(() => {
-                this.queueState.elapsedSeconds++
-                
-                // Mock: randomly update players in queue
-                if (this.queueState.elapsedSeconds % 5 === 0) {
-                    this.queueState.playersInQueue = Math.floor(Math.random() * 30) + 5
-                }
-
-                // Check for match found via WebSocket/API
-                // if (matchFound) { this.onMatchFound() }
-            }, 1000)
-
-            // Send queue request to backend
-            // this.sendQueueRequest()
-            */
-        },
-
-        // Cancel queue - can be expanded to send API cancellation
-        cancelQueue() {
-            console.log('Cancelling queue after', this.formattedTime)
-
-            this.queueState.isQueuing = false
-            this.queueState.startTime = null
-            this.queueState.elapsedSeconds = 0
-
-            // Clear timer
-            if (this.queueTimer) {
-                clearInterval(this.queueTimer)
-                this.queueTimer = null
-            }
-
-            // TODO: For future - send cancel request to backend
-            // this.sendCancelRequest(this.queueState.queueId)
-        },
-
-        // Navigate to Ban Phase (for testing)
-        goToBanPhase() {
-            console.log('Navigating to Ban Phase...')
-            // Emit event to parent to show ban phase
-            this.$emit('show-ban-phase')
-            // For future with router: this.$router.push({ name: 'BanPhase' })
-        },
-
-        // For future: Handle match found
-        onMatchFound(matchData) {
-            clearInterval(this.queueTimer)
-            console.log('Match found!', matchData)
-            // Navigate to match acceptance screen
-            // this.$router.push({ name: 'MatchAccept', params: { matchId: matchData.id } })
-        },
-
-        // For future: Send queue request to backend
-        async sendQueueRequest() {
-            // const response = await fetch('/api/queue/join', {
-            //     method: 'POST',
-            //     body: JSON.stringify({
-            //         region: this.queueState.region,
-            //         gameMode: this.queueState.gameMode,
-            //         settings: this.queueState.customSettings
-            //     })
-            // })
-            // this.queueState.queueId = response.data.queueId
-        }
-    },
-    beforeUnmount() {
-        // Clean up timer when component is destroyed
-        if (this.queueTimer) {
-            clearInterval(this.queueTimer)
-        }
-    }
-}
-</script>

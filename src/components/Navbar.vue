@@ -1,42 +1,59 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
+import { useMatchStore } from '@/stores/match';
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const matchStore = useMatchStore();
 
 const isDropdownOpen = ref(false);
 
 const toggleDropdown = () => {
-  isDropdownOpen.value = !isDropdownOpen.value;
+    isDropdownOpen.value = !isDropdownOpen.value;
 };
+
+// Check if user is locked in a match
+const isInActiveMatch = computed(() => {
+    if (!matchStore.match) return false;
+    const lockingPhases = ['draft', 'veto', 'ready', 'live'];
+    return lockingPhases.includes(matchStore.match.phase);
+});
 
 // Close dropdown when clicking outside
 const handleClickOutside = (event) => {
-  if (!event.target.closest('.profile-dropdown')) {
-    isDropdownOpen.value = false;
-  }
+    if (!event.target.closest('.profile-dropdown')) {
+        isDropdownOpen.value = false;
+    }
 };
 
 // Add event listener when component mounts
 if (typeof window !== 'undefined') {
-  window.addEventListener('click', handleClickOutside);
+    window.addEventListener('click', handleClickOutside);
 }
 
 const navItems = [
-  { name: 'Maps', path: '/maps' },
-  { name: 'Leaderboard', path: '/leaderboard' },
+    { name: 'Maps', path: '/maps' },
+    { name: 'Leaderboard', path: '/leaderboard' },
 ];
 
 const handleLogout = () => {
-  userStore.logout();
+    userStore.logout();
 };
 
 const goToProfile = () => {
-  router.push('/profile');
-  isDropdownOpen.value = false;
+    router.push('/profile');
+    isDropdownOpen.value = false;
+};
+
+const handleNavClick = (path) => {
+    if (isInActiveMatch.value) {
+        // Prevent navigation if in active match
+        return;
+    }
+    router.push(path);
 };
 </script>
 
@@ -44,58 +61,52 @@ const goToProfile = () => {
     <nav class="navbar">
         <div class="navbar-content">
             <!-- Clickable ROMISH logo/title -->
-            <router-link to="/" class="navbar-title-link">
+            <a @click.prevent="handleNavClick('/')" class="navbar-title-link" :class="{ disabled: isInActiveMatch }"
+                :title="isInActiveMatch ? 'Complete your match first' : ''">
                 <h1 class="navbar-title">ROMISH</h1>
-            </router-link>
-            
+            </a>
+
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
-                <router-link
-                    v-for="item in navItems"
-                    :key="item.path"
-                    :to="item.path"
-                    class="nav-tab"
-                    :class="{ active: route.path === item.path }"
-                >
+                <!-- Match Lock Indicator -->
+                <div v-if="isInActiveMatch" class="match-lock-indicator">
+                    🎮 IN MATCH
+                </div>
+
+                <a v-for="item in navItems" :key="item.path" @click.prevent="handleNavClick(item.path)" class="nav-tab"
+                    :class="{
+                        active: route.path === item.path,
+                        disabled: isInActiveMatch
+                    }" :title="isInActiveMatch ? 'Complete your match first' : ''">
                     {{ item.name }}
-                </router-link>
+                </a>
             </div>
-            
+
             <!-- Profile Section -->
             <div class="profile-section">
                 <!-- Profile Dropdown -->
                 <div class="profile-dropdown" @click="toggleDropdown">
                     <div class="profile-avatar">
-                        <img 
-                            :src="userStore.user?.avatar || '/default-avatar.png'" 
-                            alt="Profile Avatar" 
-                            class="profile-avatar-image" 
-                        />
+                        <img :src="userStore.user?.avatar || '/default-avatar.png'" alt="Profile Avatar"
+                            class="profile-avatar-image" />
                     </div>
-                    <span class="profile-name">{{ userStore.user?.name || 'User' }}</span>
+                    <span class="profile-name">{{ userStore.user?.username || 'User' }}</span>
                     <span class="dropdown-arrow">▼</span>
-                    
+
                     <!-- Dropdown Menu -->
                     <div class="dropdown-menu" :class="{ open: isDropdownOpen }">
                         <div class="dropdown-item" @click="goToProfile">
                             <span class="dropdown-icon">👤</span>
                             <span>Profile</span>
                         </div>
-                        <div class="dropdown-item">
-                            <span class="dropdown-icon">⚙️</span>
-                            <span>Settings (W.I.P)</span>
-                        </div>
-                        <div class="dropdown-item">
-                            <span class="dropdown-icon">🎮</span>
-                            <span>Game Stats (W.I.P)</span>
-                        </div>
-                        
+
                         <!-- Admin Panel - Only visible to admins -->
-                        <div v-if="userStore.user?.isAdmin" class="dropdown-item admin-item" @click="router.push('/admin')">
+                        <div v-if="userStore.user?.isAdmin" class="dropdown-item admin-item"
+                            @click="router.push('/admin')">
                             <span class="dropdown-icon">🛡️</span>
                             <span>Admin Panel</span>
                         </div>
-                        
+
                         <div class="dropdown-divider"></div>
                         <div class="dropdown-item logout" @click="handleLogout">
                             <span class="dropdown-icon">🚪</span>
@@ -179,6 +190,7 @@ const goToProfile = () => {
     color: var(--star-cyan);
     background: rgba(75, 207, 250, 0.1);
     border-color: rgba(75, 207, 250, 0.3);
+    cursor: pointer;
 }
 
 .nav-tab.active {
@@ -197,6 +209,47 @@ const goToProfile = () => {
     height: 2px;
     background: var(--star-cyan);
     box-shadow: 0 0 10px var(--star-cyan);
+}
+
+/* Disabled state for navigation during active matches */
+.nav-tab.disabled,
+.navbar-title-link.disabled {
+    opacity: 0.4;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
+.nav-tab.disabled:hover {
+    color: rgba(248, 250, 252, 0.6);
+    background: transparent;
+    border-color: transparent;
+}
+
+/* Match Lock Indicator */
+.match-lock-indicator {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--white-nova);
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, var(--nebula-purple), var(--magenta-glow));
+    border-radius: 20px;
+    border: 2px solid var(--magenta-glow);
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
+    }
+
+    50% {
+        box-shadow: 0 0 30px rgba(236, 72, 153, 0.8);
+    }
 }
 
 /* Profile Section */
@@ -306,7 +359,7 @@ const goToProfile = () => {
     cursor: pointer;
     font-size: 0.95rem;
     font-weight: 500;
-    z-index:9999;
+    z-index: 9999;
 }
 
 .dropdown-item:hover {
@@ -347,6 +400,53 @@ const goToProfile = () => {
     box-shadow: 0 0 15px rgba(255, 102, 196, 0.3);
 }
 
+.admin-item:hover {
+    background: rgba(255, 102, 196, 0.15);
+    box-shadow: 0 0 15px rgba(255, 102, 196, 0.3);
+}
+
+/* Chat Button Styles */
+.chat-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(75, 207, 250, 0.2));
+    border: 1px solid rgba(75, 207, 250, 0.3);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1.25rem;
+}
+
+.chat-button:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.4), rgba(75, 207, 250, 0.4));
+    border-color: rgba(75, 207, 250, 0.6);
+    box-shadow: 0 0 15px rgba(75, 207, 250, 0.3), inset 0 0 15px rgba(139, 92, 246, 0.2);
+    transform: scale(1.05);
+}
+
+.online-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    background: linear-gradient(135deg, #ff66c4, #ff33cc);
+    border: 2px solid rgba(11, 15, 26, 0.9);
+    border-radius: 50%;
+    font-size: 0.65rem;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 0 10px rgba(255, 102, 196, 0.5);
+}
+
 @media (max-width: 768px) {
     .navbar-title {
         font-size: 1.5rem;
@@ -363,6 +463,12 @@ const goToProfile = () => {
 
     .dropdown-menu {
         min-width: 220px;
+    }
+
+    .chat-button {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
     }
 }
 

@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 const error = ref(null);
 const loading = ref(false);
 
@@ -14,9 +16,12 @@ const handleSteamLogin = () => {
   window.location.href = steamAuthUrl;
 };
 
-onMounted(() => {
+onMounted(async () => {
   const errorParam = route.query.error;
   const successParam = route.query.login;
+  const tokenParam = route.query.token;
+  
+  console.log('LoginView mounted with query params:', { errorParam, successParam, tokenParam });
   
   if (errorParam) {
     switch(errorParam) {
@@ -29,13 +34,39 @@ onMounted(() => {
       case 'steam_api_failed':
         error.value = 'Failed to fetch Steam profile. Please try again.';
         break;
+      case 'server_error':
+        error.value = 'Server error during login. Please try again.';
+        break;
       default:
         error.value = 'An error occurred during login. Please try again.';
     }
+    console.log('Error detected:', error.value);
   }
   
-  if (successParam === 'success') {
-    router.push('/');
+  if (successParam === 'success' && tokenParam) {
+    console.log('Success param detected with token, setting auth...');
+    // Store the token from Steam OAuth redirect
+    authStore.setAccessToken(tokenParam);
+    
+    // Verify token and get user info
+    try {
+      console.log('Calling verify()...');
+      const result = await authStore.verify();
+      console.log('Verify result:', result);
+      if (result.success) {
+        // Successfully logged in - redirect to home
+        console.log('Redirecting to home...');
+        router.push('/');
+      } else {
+        error.value = 'Failed to verify login. Please try again.';
+        console.log('Verify failed:', result);
+      }
+    } catch (err) {
+      error.value = 'Error verifying login. Please try again.';
+      console.error('Verify error:', err);
+    }
+  } else if (successParam === 'success') {
+    console.log('Success param detected but NO token - might be legacy redirect');
   }
 });
 </script>

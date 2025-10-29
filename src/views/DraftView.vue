@@ -1,78 +1,145 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useMatchStore } from '@/stores/match';
+import { useUserStore } from '@/stores/user';
 import Navbar from '@/components/Navbar.vue';
 import PlayerList from '@/components/PlayerList.vue';
+import ToastNotification from '@/components/ToastNotification.vue';
 import userAvatar from '@/images/user.png';
 
 const router = useRouter();
+const route = useRoute();
+const matchStore = useMatchStore();
+const userStore = useUserStore();
 
-// Mock data for captains and players
-const captain1 = ref({ id: 1, name: 'Captain Alpha', avatar: userAvatar });
-const captain2 = ref({ id: 2, name: 'Captain Beta', avatar: userAvatar });
+const picking = ref(false);
+const toast = ref(null);
 
-const draftPool = ref([
-  { id: 3, name: 'Player 3', avatar: userAvatar, picked: false, team: null },
-  { id: 4, name: 'Player 4', avatar: userAvatar, picked: false, team: null },
-  { id: 5, name: 'Player 5', avatar: userAvatar, picked: false, team: null },
-  { id: 6, name: 'Player 6', avatar: userAvatar, picked: false, team: null },
-  { id: 7, name: 'Player 7', avatar: userAvatar, picked: false, team: null },
-  { id: 8, name: 'Player 8', avatar: userAvatar, picked: false, team: null },
-  { id: 9, name: 'Player 9', avatar: userAvatar, picked: false, team: null },
-  { id: 10, name: 'Player 10', avatar: userAvatar, picked: false, team: null }
-]);
+onMounted(async () => {
+  // Fetch user if not already loaded
+  if (!userStore.user) {
+    const success = await userStore.fetchUser();
+    if (!success) {
+      router.push('/login');
+      return;
+    }
+  }
 
-const team1 = ref([captain1.value]);
-const team2 = ref([captain2.value]);
+  // Get match ID from route or fetch current match
+  const matchId = route.params.matchId;
+  
+  if (matchId) {
+    await matchStore.fetchMatchById(matchId);
+  } else {
+    await matchStore.fetchCurrentMatch();
+  }
 
-const currentTurn = ref(1); // 1 for team1, 2 for team2
-const draftComplete = ref(false);
+  // Check if match exists
+  if (!matchStore.match) {
+    console.error('No active match found');
+    router.push('/');
+    return;
+  }
 
-const availablePlayers = computed(() => {
-  return draftPool.value.filter(p => !p.picked);
+  // Check if already past draft phase
+  if (matchStore.match.phase === 'veto') {
+    router.push(`/veto/${matchStore.match.matchId}`);
+    return;
+  } else if (matchStore.match.phase === 'live') {
+    router.push(`/match/${matchStore.match.matchId}`);
+    return;
+  }
+
+  // Connect socket for real-time updates
+  matchStore.connectSocket(matchStore.match.matchId);
 });
 
-const pickPlayer = (player) => {
-  if (player.picked || draftComplete.value) return;
-  
-  player.picked = true;
-  player.team = currentTurn.value;
-  
-  if (currentTurn.value === 1) {
-    team1.value.push(player);
-  } else {
-    team2.value.push(player);
-  }
-  
-  // Check if only one player left - auto-assign
-  if (availablePlayers.value.length === 1) {
-    const lastPlayer = availablePlayers.value[0];
-    lastPlayer.picked = true;
-    const assignToTeam = team1.value.length < team2.value.length ? 1 : 2;
-    lastPlayer.team = assignToTeam;
-    
-    if (assignToTeam === 1) {
-      team1.value.push(lastPlayer);
-    } else {
-      team2.value.push(lastPlayer);
-    }
-    
-    draftComplete.value = true;
-    
-    // Auto-transition to veto after 2 seconds
+onBeforeUnmount(() => {
+  matchStore.disconnectSocket();
+});
+
+// Watch for phase changes
+watch(() => matchStore.phase, (newPhase, oldPhase) => {
+  console.log(`🔄 Phase changed from ${oldPhase} to ${newPhase}`);
+  if (newPhase === 'veto') {
+    console.log('✅ Redirecting to veto view...');
+    // Draft complete, move to veto
     setTimeout(() => {
-      router.push('/veto');
-    }, 2000);
-    
+      router.push(`/veto/${matchStore.matchId}`);
+    }, 1500);
+  }
+});
+
+// Computed
+const currentCaptainName = computed(() => {
+  if (!matchStore.match) return '';
+  
+  if (matchStore.currentPicker === 'alpha') {
+    return matchStore.captainAlpha?.name || 'Team Alpha';
+  } else {
+    return matchStore.captainBeta?.name || 'Team Beta';
+  }
+});
+
+const isUserCaptain = computed(() => {
+  if (!userStore.user || !matchStore.match) return false;
+  
+  return userStore.user.steamId === matchStore.match.captains.alpha ||
+         userStore.user.steamId === matchStore.match.captains.beta;
+});
+
+const isUserTurn = computed(() => {
+  if (!isUserCaptain.value || !userStore.user || !matchStore.match) return false;
+  
+  if (matchStore.currentPicker === 'alpha') {
+    return userStore.user.steamId === matchStore.match.captains.alpha;
+  } else {
+    return userStore.user.steamId === matchStore.match.captains.beta;
+  }
+});
+
+const pickInfo = computed(() => {
+  if (!matchStore.match) return { current: 0, total: 0 };
+  
+  return {
+    current: matchStore.match.pickIndex + 1,
+    total: matchStore.match.pickOrder?.length || 8,
+  };
+});
+
+// Methods
+const pickPlayer = async (player) => {
+  if (picking.value) {
+    toast.value?.addToast('Please wait for the current pick to complete', 'warning');
     return;
   }
   
-  // Switch turn
-  currentTurn.value = currentTurn.value === 1 ? 2 : 1;
+  if (player.team !== 'undrafted') {
+    toast.value?.addToast('This player has already been picked!', 'error');
+    return;
+  }
+  
+  if (!isUserTurn.value) {
+    toast.value?.addToast("It's not your turn to pick!", 'warning');
+    return;
+  }
+
+  picking.value = true;
+
+  const result = await matchStore.pickPlayer(player.steamId);
+
+  if (result.success) {
+    toast.value?.addToast(`Picked ${player.name}!`, 'success');
+  } else {
+    toast.value?.addToast(result.error || 'Failed to pick player', 'error');
+  }
+
+  picking.value = false;
 };
 
-const skipToVeto = () => {
-  router.push('/veto');
+const goToVeto = () => {
+  router.push(`/veto/${matchStore.matchId}`);
 };
 </script>
 
@@ -80,13 +147,15 @@ const skipToVeto = () => {
   <div class="draft-wrapper">
     <Navbar />
     <PlayerList />
+    <ToastNotification ref="toast" />
     
-    <div class="draft-container">
+    <div v-if="matchStore.match" class="draft-container">
       <!-- Header -->
       <div class="draft-header">
         <h1 class="draft-title">CAPTAIN DRAFT</h1>
-        <p class="draft-subtitle" v-if="!draftComplete">
-          {{ currentTurn === 1 ? captain1.name : captain2.name }}'s turn to pick
+        <p class="draft-subtitle" v-if="matchStore.phase === 'draft'">
+          {{ currentCaptainName }}'s turn to pick ({{ pickInfo.current }}/{{ pickInfo.total }})
+          <span v-if="isUserTurn" class="your-turn">🎯 YOUR TURN</span>
         </p>
         <p class="draft-subtitle complete" v-else>
           Teams Complete! Proceeding to Map Veto...
@@ -94,26 +163,29 @@ const skipToVeto = () => {
       </div>
 
       <div class="draft-content">
-        <!-- Team 1 (Left) -->
+        <!-- Team Alpha (Left) -->
         <div class="team-section team-1">
           <div class="team-header">
-            <h2 class="team-title">TEAM ALPHA</h2>
-            <div class="team-indicator" :class="{ active: currentTurn === 1 && !draftComplete }">
+            <h2 class="team-title">{{ matchStore.teamAlphaName.toUpperCase() }}</h2>
+            <div class="team-indicator" :class="{ active: matchStore.currentPicker === 'alpha' && matchStore.phase === 'draft' }">
               <span class="crown-icon">👑</span>
             </div>
           </div>
           
           <div class="team-players">
             <div 
-              v-for="player in team1" 
-              :key="player.id"
+              v-for="player in matchStore.teamAlphaPlayers" 
+              :key="player.steamId"
               class="player-card team-1-card"
-              :class="{ captain: player.id === captain1.id }"
+              :class="{ captain: player.steamId === matchStore.match.captains.alpha }"
             >
-              <img :src="player.avatar" alt="Player" class="player-avatar" />
+              <img :src="player.avatar || userAvatar" alt="Player" class="player-avatar" />
               <div class="player-info">
                 <div class="player-name">{{ player.name }}</div>
-                <div class="player-role">{{ player.id === captain1.id ? 'Captain' : 'Player' }}</div>
+                <div class="player-meta">
+                  <span class="player-role">{{ player.steamId === matchStore.match.captains.alpha ? 'Captain' : 'Player' }}</span>
+                  <span v-if="player.faceitLevel" class="faceit-badge">LVL {{ player.faceitLevel }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -123,59 +195,74 @@ const skipToVeto = () => {
         <div class="draft-pool">
           <div class="pool-header">
             <h3 class="pool-title">AVAILABLE PLAYERS</h3>
-            <div class="pool-count">{{ availablePlayers.length }} / 8</div>
+            <div class="pool-count">{{ matchStore.undraftedPlayers.length }} / 8</div>
           </div>
           
           <div class="pool-grid">
             <div 
-              v-for="player in draftPool" 
-              :key="player.id"
+              v-for="player in matchStore.match.players" 
+              :key="player.steamId"
               class="pool-player"
               :class="{ 
-                picked: player.picked,
-                hoverable: !player.picked && !draftComplete
+                picked: player.team !== 'undrafted',
+                hoverable: player.team === 'undrafted' && matchStore.phase === 'draft' && isUserTurn,
+                disabled: !isUserTurn && player.team === 'undrafted'
               }"
               @click="pickPlayer(player)"
             >
-              <img :src="player.avatar" alt="Player" class="pool-avatar" />
-              <div class="pool-player-name">{{ player.name }}</div>
-              <div v-if="player.picked" class="picked-overlay">
-                <span class="picked-team">{{ player.team === 1 ? 'Team Alpha' : 'Team Beta' }}</span>
+              <img :src="player.avatar || userAvatar" alt="Player" class="pool-avatar" />
+              <div class="pool-player-info">
+                <div class="pool-player-name">{{ player.name }}</div>
+                <div v-if="player.faceitLevel" class="pool-faceit-badge">LVL {{ player.faceitLevel }}</div>
+              </div>
+              <div v-if="player.team !== 'undrafted'" class="picked-overlay">
+                <span class="picked-team">
+                  {{ player.team === 'alpha' ? matchStore.teamAlphaName : matchStore.teamBetaName }}
+                </span>
               </div>
             </div>
           </div>
 
           <!-- Skip Button (for testing) -->
-          <button class="skip-btn" @click="skipToVeto">
-            Skip to Veto (Testing)
+          <button v-if="matchStore.phase === 'veto'" class="skip-btn" @click="goToVeto">
+            Proceed to Veto →
           </button>
         </div>
 
-        <!-- Team 2 (Right) -->
+        <!-- Team Beta (Right) -->
         <div class="team-section team-2">
           <div class="team-header">
-            <h2 class="team-title">TEAM BETA</h2>
-            <div class="team-indicator" :class="{ active: currentTurn === 2 && !draftComplete }">
+            <h2 class="team-title">{{ matchStore.teamBetaName.toUpperCase() }}</h2>
+            <div class="team-indicator" :class="{ active: matchStore.currentPicker === 'beta' && matchStore.phase === 'draft' }">
               <span class="crown-icon">👑</span>
             </div>
           </div>
           
           <div class="team-players">
             <div 
-              v-for="player in team2" 
-              :key="player.id"
+              v-for="player in matchStore.teamBetaPlayers" 
+              :key="player.steamId"
               class="player-card team-2-card"
-              :class="{ captain: player.id === captain2.id }"
+              :class="{ captain: player.steamId === matchStore.match.captains.beta }"
             >
-              <img :src="player.avatar" alt="Player" class="player-avatar" />
+              <img :src="player.avatar || userAvatar" alt="Player" class="player-avatar" />
               <div class="player-info">
                 <div class="player-name">{{ player.name }}</div>
-                <div class="player-role">{{ player.id === captain2.id ? 'Captain' : 'Player' }}</div>
+                <div class="player-meta">
+                  <span class="player-role">{{ player.steamId === matchStore.match.captains.beta ? 'Captain' : 'Player' }}</span>
+                  <span v-if="player.faceitLevel" class="faceit-badge">LVL {{ player.faceitLevel }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-else class="loading-container">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading draft...</p>
     </div>
   </div>
 </template>
@@ -222,6 +309,27 @@ const skipToVeto = () => {
   color: var(--nebula-purple);
   text-shadow: 0 0 20px var(--nebula-purple);
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+.your-turn {
+  display: inline-block;
+  margin-left: 1rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(255, 51, 153, 0.2);
+  border: 1px solid var(--aurora-pink);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: var(--aurora-pink);
+  animation: pulse-glow-pink 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-pink {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 51, 153, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 51, 153, 0.8);
+  }
 }
 
 @keyframes pulse {
@@ -375,10 +483,27 @@ const skipToVeto = () => {
   text-overflow: ellipsis;
 }
 
-.player-role {
+.player-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.75rem;
+}
+
+.player-role {
   color: rgba(248, 250, 252, 0.5);
   letter-spacing: 0.05em;
+}
+
+.faceit-badge {
+  padding: 0.125rem 0.5rem;
+  background: linear-gradient(135deg, #FF5500, #FF8A00);
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Draft Pool */
@@ -462,6 +587,13 @@ const skipToVeto = () => {
   object-fit: cover;
 }
 
+.pool-player-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .pool-player-name {
   font-family: 'Orbitron', sans-serif;
   font-size: 0.85rem;
@@ -469,6 +601,17 @@ const skipToVeto = () => {
   color: var(--white-nova);
   text-align: center;
   letter-spacing: 0.05em;
+}
+
+.pool-faceit-badge {
+  padding: 0.125rem 0.5rem;
+  background: linear-gradient(135deg, #FF5500, #FF8A00);
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .picked-overlay {
@@ -491,6 +634,60 @@ const skipToVeto = () => {
 }
 
 /* Skip Button */
+.skip-btn {
+  margin-top: 1.5rem;
+  padding: 0.875rem 2rem;
+  background: rgba(17, 24, 39, 0.8);
+  border: 2px solid var(--nebula-purple);
+  border-radius: 50px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--nebula-purple);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.skip-btn:hover {
+  background: var(--nebula-purple);
+  color: var(--cosmic-black);
+  box-shadow: 0 0 30px var(--nebula-purple);
+  transform: translateY(-2px);
+}
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  gap: 2rem;
+}
+
+.loading-spinner {
+  width: 80px;
+  height: 80px;
+  border: 4px solid rgba(75, 207, 250, 0.1);
+  border-top-color: var(--star-cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.25rem;
+  color: var(--star-cyan);
+  letter-spacing: 0.1em;
+}
+
+/* Responsive */
 .skip-btn {
   align-self: center;
   padding: 0.75rem 2rem;

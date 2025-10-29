@@ -1,16 +1,17 @@
 <script setup>
-import { ref } from 'vue';
-import dust2Img from '@/images/dust2_normal.jpg';
-import mirageImg from '@/images/de_mirage.jpg';
-import infernoImg from '@/images/inferno_normal.jpg';
-import nukeImg from '@/images/de_nuke.jpg';
-import overpassImg from '@/images/de_overpass.jpg';
-import vertigoImg from '@/images/de_vertigo.jpg';
-import ancientImg from '@/images/de_ancient.jpg';
-import cacheImg from '@/images/de_cache.jpg';
-import cobblestoneImg from '@/images/cobblestone_normal.jpg';
-import anubisImg from '@/images/de_anubis.jpg';
-import trainImg from '@/images/de_train.jpg';
+import { ref, computed } from 'vue';
+import dust2Img from '@/images/maps/dust2_normal.jpg';
+import mirageImg from '@/images/maps/de_mirage.jpg';
+import infernoImg from '@/images/maps/inferno_normal.jpg';
+import nukeImg from '@/images/maps/de_nuke.jpg';
+import overpassImg from '@/images/maps/de_overpass.jpg';
+import vertigoImg from '@/images/maps/de_vertigo.jpg';
+import ancientImg from '@/images/maps/de_ancient.jpg';
+import cacheImg from '@/images/maps/de_cache.jpg';
+import cobblestoneImg from '@/images/maps/cobblestone_normal.jpg';
+import anubisImg from '@/images/maps/de_anubis.jpg';
+import trainImg from '@/images/maps/de_train.jpg';
+import aztecImg from '@/images/maps/aztec.png';
 
 const maps = ref([
   { id: 1, name: 'Dust II', image: dust2Img },
@@ -23,8 +24,12 @@ const maps = ref([
   { id: 8, name: 'Cache', image: cacheImg },
   { id: 9, name: 'Cobblestone', image: cobblestoneImg },
   { id: 10, name: 'Anubis', image: anubisImg },
-  { id: 11, name: 'Train', image: trainImg }
+  { id: 11, name: 'Train', image: trainImg },
+  { id: 12, name: 'Aztec', image: aztecImg }
 ]);
+
+// Show all available maps in the grid
+const visibleMaps = computed(() => maps.value);
 </script>
 
 <template>
@@ -33,12 +38,12 @@ const maps = ref([
             <h2 class="section-title">Map Pool</h2>
         </div>
         <div class="map-grid">
-            <div v-for="map in maps" :key="map.id" class="map-card">
-                <img :src="map.image" :alt="map.name" class="map-image" />
-                <div class="map-overlay">
-                    <span class="map-name">{{ map.name }}</span>
+                <div v-for="(map, idx) in visibleMaps" :key="map.id" class="map-card">
+                    <img :src="map.image" :alt="map.name" class="map-image" />
+                    <div class="map-overlay">
+                        <span class="map-name">{{ map.name }}</span>
+                    </div>
                 </div>
-            </div>
         </div>
     </section>
 </template>
@@ -145,16 +150,7 @@ const maps = ref([
     justify-content: center;
 }
 
-.map-counter {
-    align-self: flex-end;
-    background: var(--star-cyan);
-    color: var(--cosmic-black);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-weight: 700;
-    font-family: 'Orbitron', sans-serif;
-    box-shadow: var(--cyan-glow);
-}
+
 
 /* Responsive */
 @media (max-width: 1024px) {

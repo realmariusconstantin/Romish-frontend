@@ -1,109 +1,263 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useMatchStore } from '@/stores/match';
+import { useUserStore } from '@/stores/user';
 import Navbar from '@/components/Navbar.vue';
 import PlayerList from '@/components/PlayerList.vue';
+import ToastNotification from '@/components/ToastNotification.vue';
+import LoadingScreen from '@/components/LoadingScreen.vue';
 import userAvatar from '@/images/user.png';
 
 // Map images
-import dust2Img from '@/images/dust2_normal.jpg';
-import mirageImg from '@/images/de_mirage.jpg';
-import infernoImg from '@/images/inferno_normal.jpg';
-import nukeImg from '@/images/de_nuke.jpg';
-import overpassImg from '@/images/de_overpass.jpg';
-import vertigoImg from '@/images/de_vertigo.jpg';
-import ancientImg from '@/images/de_ancient.jpg';
-import cacheImg from '@/images/de_cache.jpg';
-import cobblestoneImg from '@/images/cobblestone_normal.jpg';
-import anubisImg from '@/images/de_anubis.jpg';
-import trainImg from '@/images/de_train.jpg';
+import dust2Img from '@/images/maps/dust2_normal.jpg';
+import mirageImg from '@/images/maps/de_mirage.jpg';
+import infernoImg from '@/images/maps/inferno_normal.jpg';
+import nukeImg from '@/images/maps/de_nuke.jpg';
+import overpassImg from '@/images/maps/de_overpass.jpg';
+import vertigoImg from '@/images/maps/de_vertigo.jpg';
+import ancientImg from '@/images/maps/de_ancient.jpg';
+import cacheImg from '@/images/maps/de_cache.jpg';
+import cobblestoneImg from '@/images/maps/cobblestone_normal.jpg';
+import anubisImg from '@/images/maps/de_anubis.jpg';
+import trainImg from '@/images/maps/de_train.jpg';
+import aztecImg from '@/images/maps/aztec.png';
 
 const router = useRouter();
+const route = useRoute();
+const matchStore = useMatchStore();
+const userStore = useUserStore();
 
-// Mock map data (11 maps for CS2)
-const maps = ref([
-  { id: 1, name: 'Dust II', banned: false, bannedBy: null, image: dust2Img },
-  { id: 2, name: 'Mirage', banned: false, bannedBy: null, image: mirageImg },
-  { id: 3, name: 'Inferno', banned: false, bannedBy: null, image: infernoImg },
-  { id: 4, name: 'Nuke', banned: false, bannedBy: null, image: nukeImg },
-  { id: 5, name: 'Overpass', banned: false, bannedBy: null, image: overpassImg },
-  { id: 6, name: 'Vertigo', banned: false, bannedBy: null, image: vertigoImg },
-  { id: 7, name: 'Ancient', banned: false, bannedBy: null, image: ancientImg },
-  { id: 8, name: 'Cache', banned: false, bannedBy: null, image: cacheImg },
-  { id: 9, name: 'Cobblestone', banned: false, bannedBy: null, image: cobblestoneImg },
-  { id: 10, name: 'Anubis', banned: false, bannedBy: null, image: anubisImg },
-  { id: 11, name: 'Train', banned: false, bannedBy: null, image: trainImg }
-]);
+const banning = ref(false);
+const showPassword = ref(false);
+const toast = ref(null);
+const ipInput = ref(null);
+const passwordInput = ref(null);
+const connectInput = ref(null);
 
-const currentTurn = ref(1); // 1 for Team Alpha, 2 for Team Beta
-const vetoComplete = ref(false);
-const finalMap = ref(null);
-const showServerInfo = ref(false);
-
-// Mock server connection info (TODO: Replace with actual backend data)
-const serverInfo = ref({
-  ip: '192.168.1.100:27015',
-  password: 'romish_match_2025'
-});
-
-// Mock team data (TODO: Get from draft results)
-const team1 = ref([
-  { id: 1, name: 'Captain Alpha', avatar: userAvatar },
-  { id: 3, name: 'Player 3', avatar: userAvatar },
-  { id: 5, name: 'Player 5', avatar: userAvatar },
-  { id: 7, name: 'Player 7', avatar: userAvatar },
-  { id: 9, name: 'Player 9', avatar: userAvatar }
-]);
-
-const team2 = ref([
-  { id: 2, name: 'Captain Beta', avatar: userAvatar },
-  { id: 4, name: 'Player 4', avatar: userAvatar },
-  { id: 6, name: 'Player 6', avatar: userAvatar },
-  { id: 8, name: 'Player 8', avatar: userAvatar },
-  { id: 10, name: 'Player 10', avatar: userAvatar }
-]);
-
-const availableMaps = computed(() => {
-  return maps.value.filter(m => !m.banned);
-});
-
-const currentTeamName = computed(() => {
-  return currentTurn.value === 1 ? 'Team Alpha' : 'Team Beta';
-});
-
-const banMap = (map) => {
-  if (map.banned || vetoComplete.value) return;
-  
-  map.banned = true;
-  map.bannedBy = currentTurn.value;
-  
-  // Check if only one map remains
-  if (availableMaps.value.length === 1) {
-    finalMap.value = availableMaps.value[0];
-    vetoComplete.value = true;
-    
-    // Show server info bar after 2 seconds
-    setTimeout(() => {
-      showServerInfo.value = true;
-    }, 2000);
-    return;
-  }
-  
-  // Switch turn
-  currentTurn.value = currentTurn.value === 1 ? 2 : 1;
+// Map image lookup
+const mapImages = {
+  'Dust II': dust2Img,
+  'Mirage': mirageImg,
+  'Inferno': infernoImg,
+  'Nuke': nukeImg,
+  'Overpass': overpassImg,
+  'Vertigo': vertigoImg,
+  'Ancient': ancientImg,
+  'Cache': cacheImg,
+  'Cobblestone': cobblestoneImg,
+  'Anubis': anubisImg,
+  'Train': trainImg,
+  'Aztec': aztecImg,
 };
 
-const goBack = () => {
-  router.push('/draft');
+onMounted(async () => {
+  // Fetch user if not already loaded
+  if (!userStore.user) {
+    const success = await userStore.fetchUser();
+    if (!success) {
+      router.push('/login');
+      return;
+    }
+  }
+
+  // Get match ID from route or fetch current match
+  const matchId = route.params.matchId;
+  
+  console.log('VetoView mounted - matchId:', matchId);
+  
+  if (matchId) {
+    console.log('Fetching match by ID:', matchId);
+    await matchStore.fetchMatchById(matchId);
+  } else {
+    console.log('Fetching current match');
+    await matchStore.fetchCurrentMatch();
+  }
+
+  // Check if match exists
+  if (!matchStore.match) {
+    console.error('No active match found - redirecting to home');
+    toast.value?.addToast('No active match found', 'error');
+    router.push('/');
+    return;
+  }
+
+  console.log('Match loaded:', matchStore.match.matchId, 'Phase:', matchStore.match.phase);
+
+  // Check if in wrong phase
+  if (matchStore.match.phase === 'draft') {
+    router.push(`/draft/${matchStore.match.matchId}`);
+    return;
+  }
+
+  // Connect socket for real-time updates
+  matchStore.connectSocket(matchStore.match.matchId);
+});
+
+onBeforeUnmount(() => {
+  matchStore.disconnectSocket();
+});
+
+// Computed
+const currentTeamName = computed(() => {
+  if (!matchStore.match) return '';
+  
+  if (matchStore.currentVeto === 'alpha') {
+    return matchStore.teamAlphaName;
+  } else {
+    return matchStore.teamBetaName;
+  }
+});
+
+const isUserCaptain = computed(() => {
+  if (!userStore.user || !matchStore.match) return false;
+  
+  return userStore.user.steamId === matchStore.match.captains.alpha ||
+         userStore.user.steamId === matchStore.match.captains.beta;
+});
+
+const isUserTurn = computed(() => {
+  if (!isUserCaptain.value || !userStore.user || !matchStore.match) return false;
+  
+  if (matchStore.currentVeto === 'alpha') {
+    return userStore.user.steamId === matchStore.match.captains.alpha;
+  } else {
+    return userStore.user.steamId === matchStore.match.captains.beta;
+  }
+});
+
+const vetoInfo = computed(() => {
+  if (!matchStore.match) return { current: 0, total: 0, mapsRemaining: 0 };
+  
+  // Calculate based on maps remaining instead of vetoOrder
+  const totalMaps = (matchStore.match.availableMaps?.length || 0) + (matchStore.match.bannedMaps?.length || 0);
+  const bannedCount = matchStore.match.bannedMaps?.length || 0;
+  const mapsRemaining = matchStore.match.availableMaps?.length || 0;
+  
+  return {
+    current: bannedCount,
+    total: totalMaps - 1, // Total bans needed (leave 1 map)
+    mapsRemaining,
+  };
+});
+
+// Build map list with ban status
+const maps = computed(() => {
+  if (!matchStore.match) return [];
+  
+  const allMaps = [...matchStore.match.availableMaps];
+  const bannedMaps = matchStore.match.bannedMaps || [];
+  
+  return Object.keys(mapImages).map(mapName => {
+    const bannedInfo = bannedMaps.find(b => b.map === mapName);
+    
+    return {
+      name: mapName,
+      image: mapImages[mapName],
+      banned: !!bannedInfo,
+      bannedBy: bannedInfo?.bannedBy || null,
+      available: matchStore.match.availableMaps.includes(mapName),
+    };
+  });
+});
+
+const availableMaps = computed(() => {
+  return maps.value.filter(m => m.available);
+});
+
+const finalMap = computed(() => {
+  if (matchStore.match?.selectedMap) {
+    return maps.value.find(m => m.name === matchStore.match.selectedMap);
+  }
+  return null;
+});
+
+// Display connect command (blurred or visible)
+const displayConnectCommand = computed(() => {
+  if (!matchStore.match?.serverInfo) return 'Loading...';
+  const ip = matchStore.match.serverInfo.ip;
+  const port = matchStore.match.serverInfo.port || '25904';
+  return `connect ${ip}:${port}`;
+});
+
+// Full connect command with password for copying
+const fullConnectCommand = computed(() => {
+  if (!matchStore.match?.serverInfo) return 'Loading...';
+  return `connect ${matchStore.match.serverInfo.ip}; password ${matchStore.match.serverInfo.password}`;
+});
+
+// Methods
+const copyToClipboard = async (text, label = 'Text') => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.value?.addToast(`${label} copied to clipboard!`, 'success');
+  } catch (err) {
+    toast.value?.addToast('Failed to copy to clipboard', 'error');
+  }
+};
+
+const launchCS2 = () => {
+  if (matchStore.match?.serverInfo?.connectString) {
+    // Try to launch Steam URL
+    window.location.href = `steam://connect/${matchStore.match.serverInfo.ip}`;
+    toast.value?.addToast('Launching CS2...', 'info');
+  } else {
+    toast.value?.addToast('Server info not available yet', 'warning');
+  }
+};
+
+const togglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value;
 };
 
 const goToQueue = () => {
   router.push('/');
 };
 
-const copyToClipboard = (text) => {
-  navigator.clipboard.writeText(text);
-  // TODO: Add toast notification for copy feedback
+const banMap = async (map) => {
+  if (banning.value) {
+    toast.value?.addToast('Please wait for the current ban to complete', 'warning');
+    return;
+  }
+  
+  if (!map.available) {
+    toast.value?.addToast('This map has already been banned!', 'error');
+    return;
+  }
+  
+  if (matchStore.phase === 'live' || matchStore.phase === 'ready') {
+    toast.value?.addToast('Map veto is complete!', 'info');
+    return;
+  }
+  
+  if (!isUserTurn.value) {
+    toast.value?.addToast("It's not your turn to ban!", 'warning');
+    return;
+  }
+
+  banning.value = true;
+
+  const result = await matchStore.banMap(map.name);
+
+  if (result.success) {
+    toast.value?.addToast(`Banned ${map.name}!`, 'success');
+    
+    if (result.phaseComplete) {
+      // Veto complete, match is live
+      toast.value?.addToast('Map veto complete! Server starting...', 'success', 4000);
+      setTimeout(() => {
+        showServerInfo.value = true;
+      }, 2000);
+    }
+  } else {
+    toast.value?.addToast(result.error || 'Failed to ban map', 'error');
+  }
+
+  banning.value = false;
+};
+
+const goBack = () => {
+  router.push(`/draft/${matchStore.matchId}`);
 };
 </script>
 
@@ -111,17 +265,28 @@ const copyToClipboard = (text) => {
   <div class="veto-wrapper">
     <Navbar />
     <PlayerList />
+    <ToastNotification ref="toast" />
     
+    <!-- Loading State -->
+    <div v-if="!matchStore.match" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading map veto...</p>
+    </div>
+
+    <!-- Server Provisioning Loading Screen -->
+    <LoadingScreen v-else-if="matchStore.phase === 'ready'" phase="provisioning" />
+
     <!-- Veto Phase View -->
-    <div class="veto-container" v-if="!showServerInfo">
+    <div v-else-if="matchStore.phase === 'veto'" class="veto-container">
       <!-- Header -->
       <div class="veto-header">
         <h1 class="veto-title">MAP VETO</h1>
-        <p class="veto-subtitle" v-if="!vetoComplete">
-          {{ currentTeamName }} is banning...
+        <p class="veto-subtitle" v-if="matchStore.phase === 'veto'">
+          {{ currentTeamName }} is banning... ({{ vetoInfo.mapsRemaining }} maps remaining)
+          <span v-if="isUserTurn" class="your-turn">🎯 YOUR TURN</span>
         </p>
         <p class="veto-subtitle complete" v-else>
-          Final Map: <span class="final-map-name">{{ finalMap.name }}</span>
+          Final Map: <span class="final-map-name">{{ finalMap?.name }}</span>
         </p>
       </div>
 
@@ -129,14 +294,15 @@ const copyToClipboard = (text) => {
       <div class="map-veto-grid">
         <div 
           v-for="map in maps" 
-          :key="map.id"
+          :key="map.name"
           class="map-card"
           :class="{ 
             banned: map.banned,
-            'banned-team-1': map.banned && map.bannedBy === 1,
-            'banned-team-2': map.banned && map.bannedBy === 2,
-            final: vetoComplete && map.id === finalMap?.id,
-            hoverable: !map.banned && !vetoComplete
+            'banned-team-alpha': map.banned && map.bannedBy === 'alpha',
+            'banned-team-beta': map.banned && map.bannedBy === 'beta',
+            final: matchStore.phase === 'live' && map.name === finalMap?.name,
+            hoverable: map.available && matchStore.phase === 'veto' && isUserTurn,
+            disabled: !isUserTurn && map.available && matchStore.phase === 'veto'
           }"
           @click="banMap(map)"
         >
@@ -146,30 +312,22 @@ const copyToClipboard = (text) => {
             <div v-if="map.banned" class="ban-overlay">
               <span class="ban-x">✕</span>
               <span class="banned-by">
-                {{ map.bannedBy === 1 ? 'Team Alpha' : 'Team Beta' }}
+                {{ map.bannedBy === 'alpha' ? matchStore.teamAlphaName : matchStore.teamBetaName }}
               </span>
             </div>
-            <div v-if="vetoComplete && map.id === finalMap?.id" class="final-overlay">
+            <div v-if="matchStore.phase === 'live' && map.name === finalMap?.name" class="final-overlay">
               <span class="final-text">SELECTED</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="veto-actions">
-        <button class="action-btn secondary" @click="goBack">
-          ← Back to Draft
-        </button>
-        <button class="action-btn primary" @click="goToQueue">
-          Return to Queue
-        </button>
-      </div>
+      <!-- No action buttons during veto phase -->
     </div>
 
-    <!-- Server Connection View (replaces everything after veto complete) -->
+    <!-- Match Ready View (after server provisioning) -->
     <transition name="fadeIn">
-      <div v-if="showServerInfo" class="server-connection-view">
+      <div v-if="matchStore.phase === 'live' && matchStore.match" class="server-connection-view">
         <div class="connection-container">
           <h1 class="connection-title">MATCH READY</h1>
           
@@ -177,11 +335,11 @@ const copyToClipboard = (text) => {
             <!-- Team Alpha (Left) -->
             <div class="team-section team-alpha">
               <div class="team-header-small">
-                <h3 class="team-title-small">TEAM ALPHA</h3>
+                <h3 class="team-title-small">{{ matchStore.teamAlphaName.toUpperCase() }}</h3>
               </div>
               <div class="team-players-list">
-                <div v-for="player in team1" :key="player.id" class="player-item-small">
-                  <img :src="player.avatar" alt="Avatar" class="player-avatar-small" />
+                <div v-for="player in matchStore.teamAlphaPlayers" :key="player.steamId" class="player-item-small">
+                  <img :src="player.avatar || userAvatar" alt="Avatar" class="player-avatar-small" />
                   <span class="player-name-small">{{ player.name }}</span>
                 </div>
               </div>
@@ -196,13 +354,34 @@ const copyToClipboard = (text) => {
 
               <!-- Connect Command -->
               <div class="connect-command-section-center">
-                <span class="command-label">CONNECT TO SERVER</span>
-                <div class="command-box">
-                  <code class="connect-command">connect {{ serverInfo.ip }}; password {{ serverInfo.password }};</code>
-                  <button class="copy-btn-large" @click="copyToClipboard(`connect ${serverInfo.ip}; password ${serverInfo.password};`)" title="Copy Command">
-                    <span class="copy-icon">📋</span>
-                    <span>COPY</span>
-                  </button>
+                <div class="command-box-horizontal">
+                  <code class="connect-command-compact" :class="{ blurred: !showPassword }">{{ displayConnectCommand }}</code>
+                  <div class="action-buttons-group">
+                    <button 
+                      v-if="matchStore.match.serverInfo?.ip"
+                      class="action-btn eye-btn" 
+                      @click="togglePasswordVisibility"
+                      :title="showPassword ? 'Hide connection' : 'Show connection'"
+                    >
+                      <span class="icon">{{ showPassword ? '🙈' : '👁️' }}</span>
+                    </button>
+                    <button 
+                      v-if="matchStore.match.serverInfo?.ip"
+                      class="action-btn copy-btn" 
+                      @click="copyToClipboard(fullConnectCommand, 'Connect command')" 
+                      title="Copy Command"
+                    >
+                      <span class="icon">📋</span>
+                    </button>
+                    <button 
+                      v-if="matchStore.match.serverInfo?.ip"
+                      class="action-btn connect-btn" 
+                      @click="launchCS2"
+                      title="Connect to Match"
+                    >
+                      <span class="icon">�</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -210,25 +389,15 @@ const copyToClipboard = (text) => {
             <!-- Team Beta (Right) -->
             <div class="team-section team-beta">
               <div class="team-header-small">
-                <h3 class="team-title-small">TEAM BETA</h3>
+                <h3 class="team-title-small">{{ matchStore.teamBetaName.toUpperCase() }}</h3>
               </div>
               <div class="team-players-list">
-                <div v-for="player in team2" :key="player.id" class="player-item-small">
-                  <img :src="player.avatar" alt="Avatar" class="player-avatar-small" />
+                <div v-for="player in matchStore.teamBetaPlayers" :key="player.steamId" class="player-item-small">
+                  <img :src="player.avatar || userAvatar" alt="Avatar" class="player-avatar-small" />
                   <span class="player-name-small">{{ player.name }}</span>
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="connection-actions">
-            <button class="action-btn secondary" @click="goBack">
-              ← Back to Draft
-            </button>
-            <button class="action-btn primary" @click="goToQueue">
-              Return to Queue
-            </button>
           </div>
         </div>
       </div>
@@ -237,6 +406,8 @@ const copyToClipboard = (text) => {
 </template>
 
 <style scoped>
+@import '@/styles/serverInfo.css';
+
 .veto-wrapper {
   min-height: 100vh;
   position: relative;
@@ -280,10 +451,61 @@ const copyToClipboard = (text) => {
   text-shadow: 0 0 20px var(--nebula-purple);
 }
 
+.your-turn {
+  display: inline-block;
+  margin-left: 1rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(255, 51, 153, 0.2);
+  border: 1px solid var(--aurora-pink);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: var(--aurora-pink);
+  animation: pulse-glow-pink 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-pink {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 51, 153, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 51, 153, 0.8);
+  }
+}
+
 .final-map-name {
   color: var(--star-cyan);
   font-weight: 700;
   text-shadow: 0 0 30px var(--star-cyan);
+}
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  gap: 2rem;
+}
+
+.loading-spinner {
+  width: 80px;
+  height: 80px;
+  border: 4px solid rgba(75, 207, 250, 0.1);
+  border-top-color: var(--star-cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.25rem;
+  color: var(--star-cyan);
+  letter-spacing: 0.1em;
 }
 
 /* Map Grid */
@@ -304,6 +526,10 @@ const copyToClipboard = (text) => {
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
+}
+
+.map-card.disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -814,6 +1040,107 @@ const copyToClipboard = (text) => {
   font-size: 1.1rem;
 }
 
+/* New Horizontal Command Box Layout */
+.command-box-horizontal {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(11, 15, 26, 0.95);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 2px solid var(--star-cyan);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 0 40px rgba(75, 207, 250, 0.4), inset 0 0 20px rgba(75, 207, 250, 0.1);
+  transition: all 0.3s ease;
+}
+
+.command-box-horizontal:hover {
+  box-shadow: 0 0 60px rgba(75, 207, 250, 0.6), inset 0 0 30px rgba(75, 207, 250, 0.15);
+  border-color: var(--white-nova);
+}
+
+.connect-command-compact {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white-nova);
+  background: transparent;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 10px rgba(75, 207, 250, 0.5);
+  transition: all 0.3s ease;
+}
+
+.connect-command-compact.blurred {
+  filter: blur(5px);
+  user-select: none;
+}
+
+.connect-command-compact:not(.blurred) {
+  filter: blur(0);
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: linear-gradient(135deg, var(--star-cyan), var(--nebula-purple));
+  border: 2px solid var(--star-cyan);
+  border-radius: 8px;
+  font-size: 1.2rem;
+  color: var(--white-nova);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(75, 207, 250, 0.4);
+}
+
+.action-btn:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 0 40px rgba(75, 207, 250, 0.7);
+  background: linear-gradient(135deg, var(--white-nova), var(--star-cyan));
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+.action-btn .icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* Specific button variants */
+.eye-btn {
+  border-color: var(--aurora-pink);
+  background: linear-gradient(135deg, var(--aurora-pink), var(--magenta-glow));
+}
+
+.eye-btn:hover {
+  background: linear-gradient(135deg, var(--white-nova), var(--aurora-pink));
+  box-shadow: 0 0 40px rgba(255, 51, 153, 0.7);
+}
+
+.connect-btn {
+  border-color: var(--nebula-purple);
+  background: linear-gradient(135deg, var(--nebula-purple), var(--magenta-glow));
+}
+
+.connect-btn:hover {
+  background: linear-gradient(135deg, var(--white-nova), var(--nebula-purple));
+  box-shadow: 0 0 40px var(--purple-glow);
+}
+
 /* Connection Actions */
 .connection-actions {
   display: flex;
@@ -892,9 +1219,25 @@ const copyToClipboard = (text) => {
     padding: 1rem;
   }
 
+  .command-box-horizontal {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
   .connect-command {
     font-size: 0.85rem;
     text-align: center;
+  }
+
+  .connect-command-compact {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .action-buttons-group {
+    width: 100%;
+    justify-content: center;
   }
 
   .copy-btn-large {
@@ -925,8 +1268,63 @@ const copyToClipboard = (text) => {
     font-size: 0.75rem;
   }
 
+  .connect-command-compact {
+    font-size: 0.8rem;
+  }
+
   .player-item-small {
     min-width: 100%;
   }
+
+  .action-btn {
+    width: 50px;
+    height: 50px;
+  }
+
+  .action-btn .icon {
+    font-size: 1.5rem;
+  }
+}
+
+/* Launch CS2 Button */
+.launch-cs2-btn {
+  margin-top: 2rem;
+  padding: 1.2rem 3rem;
+  background: linear-gradient(135deg, var(--nebula-purple), var(--magenta-glow));
+  border: 3px solid var(--aurora-pink);
+  border-radius: 12px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--white-nova);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 30px rgba(255, 51, 153, 0.5),
+              0 4px 15px rgba(0, 0, 0, 0.3);
+  text-transform: uppercase;
+  width: fit-content;
+  align-self: center;
+}
+
+.launch-cs2-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 0 50px rgba(255, 51, 153, 0.8),
+              0 6px 25px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, var(--magenta-glow), var(--aurora-pink));
+  border-color: var(--white-nova);
+}
+
+.launch-cs2-btn:active {
+  transform: translateY(-2px) scale(1.02);
 }
 </style>
+/* Server Info Styles */
+.server-info-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 80px);
+  padding: 2rem;
+}
+

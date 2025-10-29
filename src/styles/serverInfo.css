@@ -1,0 +1,221 @@
+/* Server Info Display Styles */
+
+.server-info-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 80px);
+  padding: 2rem;
+}
+
+.server-info-box {
+  background: rgba(17, 24, 39, 0.8);
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
+  border: 2px solid rgba(75, 207, 250, 0.4);
+  border-radius: 16px;
+  padding: 3rem;
+  max-width: 700px;
+  width: 100%;
+  box-shadow: 0 0 40px rgba(75, 207, 250, 0.3);
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.server-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  background: linear-gradient(135deg, var(--star-cyan), var(--nebula-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.server-subtitle {
+  text-align: center;
+  color: rgba(248, 250, 252, 0.7);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.final-map-display {
+  position: relative;
+  margin-bottom: 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(75, 207, 250, 0.5);
+}
+
+.final-map-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.final-map-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--star-cyan);
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+.connect-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--star-cyan);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.info-value-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.info-value {
+  flex: 1;
+  padding: 0.875rem 1rem;
+  background: rgba(17, 24, 39, 0.6);
+  border: 2px solid rgba(75, 207, 250, 0.3);
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  color: var(--white-nova);
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.info-value:focus {
+  border-color: var(--star-cyan);
+}
+
+.info-value.connect-command {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.toggle-btn,
+.copy-btn {
+  padding: 0.875rem 1rem;
+  background: rgba(75, 207, 250, 0.1);
+  border: 2px solid rgba(75, 207, 250, 0.3);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--star-cyan);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.toggle-btn:hover,
+.copy-btn:hover {
+  background: rgba(75, 207, 250, 0.2);
+  border-color: var(--star-cyan);
+  box-shadow: 0 0 15px rgba(75, 207, 250, 0.3);
+}
+
+.server-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 1rem 2rem;
+  border: 2px solid;
+  border-radius: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, var(--star-cyan), var(--nebula-purple));
+  border-color: transparent;
+  color: white;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(75, 207, 250, 0.4);
+}
+
+.secondary-btn {
+  background: rgba(17, 24, 39, 0.6);
+  border-color: rgba(75, 207, 250, 0.3);
+  color: var(--star-cyan);
+}
+
+.secondary-btn:hover {
+  background: rgba(75, 207, 250, 0.1);
+  border-color: var(--star-cyan);
+}
+
+@media (max-width: 768px) {
+  .server-info-box {
+    padding: 2rem 1.5rem;
+  }
+
+  .server-title {
+    font-size: 2rem;
+  }
+
+  .final-map-label {
+    font-size: 1.25rem;
+  }
+
+  .server-actions {
+    flex-direction: column;
+  }
+
+  .info-value-group {
+    flex-wrap: wrap;
+  }
+
+  .copy-btn,
+  .toggle-btn {
+    flex: 1;
+    min-width: 80px;
+  }
+}
