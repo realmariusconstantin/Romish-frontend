@@ -31,10 +31,3 @@ This frontend also serves as the base for the **Discord-verified access system**
 - **WebSockets** for live updates
 
 ---
-
-## ⚙️ Setup
-```bash
-git clone https://github.com/realmariusconstantin/Romish-frontend.git
-cd Romish-frontend
-npm install
-npm run dev
