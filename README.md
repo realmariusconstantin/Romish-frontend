@@ -1,38 +1,40 @@
-# romish-frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+# 🎨 Romish.gg Frontend
 
-## Recommended IDE Setup
+This is the **Vue 3 frontend** for the Romish.gg matchmaking system — a full CS2 10-man web platform connected to a Node.js backend and DatHost servers.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+---
 
-## Recommended Browser Setup
+## 🧠 What It Does
+- Handles the **UI and state** for:
+  - Queue system
+  - Accept/ready phase
+  - Captain draft & map veto
+  - Match lobby with connect info
+- Displays live player data via **WebSocket updates**
+- Integrates with the backend using secure Axios requests and JWT cookies
+- Includes animated cards, player avatars, and ELO displays
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+---
 
-## Customize configuration
+## 💡 Why I Built It
+The goal was to give players a **Faceit-like interface** — smooth, modern, and responsive — without relying on any existing platforms.  
+This frontend also serves as the base for the **Discord-verified access system**, ensuring only authorized users can join queues or matches.
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+---
 
-## Project Setup
+## 🧱 Tech Stack
+- **Vue 3** (Composition API)
+- **Vite** for blazing-fast builds
+- **TailwindCSS** for responsive UI
+- **Axios** for backend API calls
+- **WebSockets** for live updates
 
-```sh
+---
+
+## ⚙️ Setup
+```bash
+git clone https://github.com/realmariusconstantin/Romish-frontend.git
+cd Romish-frontend
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
